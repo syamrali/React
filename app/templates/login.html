@@ -9,6 +9,8 @@
         body {
             background-color: #00b894;
             font-family: 'Inter', sans-serif;
+            /* align-items: center;
+            justify-content: center; */
         }
         .login-container {
             background-color: white;
@@ -17,6 +19,10 @@
             padding: 2rem;
             width: 100%;
             max-width: 400px;
+            position: relative;
+            left: 25px;
+            
+
         }
         .input-field {
             width: 100%;
@@ -59,7 +65,8 @@
 <body class="min-h-screen flex flex-col items-center justify-center p-4">
     <div class="w-full max-w-md">
         <div class="text-center mb-8">
-            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Sādhaka AI Logo" class="h-8 mx-auto mb-4">
+            <!-- <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Sādhaka AI Logo" class="h-8 mx-auto mb-4"> -->
+            <img src="/static/images/logo.png" alt="Logo" class="mx-auto h-12 sm:h-16 w-auto mb-3 sm:mb-4">
             
             <p class="text-white">DevOps Tools Suite</p>
         </div>
