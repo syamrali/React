@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DevOps Configuration Analyzer</title>
+    <title>Sādhaka AI - DevOps Tools Suite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.5/cdn.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.2.1/flowbite.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <style>
     /* General Styling */
 body {
@@ -67,7 +69,13 @@ button {
     background-color: #10b981;
 }
 
+ button.bg-emerald-600 {
+  background-color: #10b981;
+}
 
+button.bg-emerald-600:hover {
+  background-color: #059669;
+} 
 
 button.bg-blue-700 {
   background-color: #10b981;
@@ -134,274 +142,422 @@ pre {
   margin: 0;
 }
 
+.header-custom {
+    background-color: #00b894;
+    padding: 0.75rem 1rem;
+}
+.header-logo {
+    height: 1.75rem;
+    width: auto;
+}
+.header-title {
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+.header-ai {
+    color: rgba(255, 255, 255, 0.8);
+}
+.project-card {
+    border: 1px dashed #e5e7eb;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    transition: all 0.3s;
+    cursor: pointer;
+    background: white;
+}
+.project-card:hover {
+    border-color: #00b894;
+}
+.icon-container {
+    background-color: #ecfdf5;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+}
+.icon-container svg {
+    color: #00b894;
+}
 </style>
 </head>
-<body class="bg-gray-50">
-    <div x-data="{ 
-        activeTab: 'analyze',
-        files: {
-            analyze: null,
-            kubernetes: {
-                dockerfile: null,
-                imageName: '',
-                hostName: ''
-            }
-        },
-        fileContents: {
-            analyze: '',
-            kubernetes: ''
-        },
-        analysisResult: '',
-        kubernetesResult: null,
-        isLoading: false,
-        
-        async readFile(file, type) {
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                if (type === 'analyze') {
-                    this.fileContents.analyze = e.target.result;
-                } else {
-                    this.fileContents.kubernetes = e.target.result;
-                }
-            };
-            reader.readAsText(file);
-        },
+<body class="bg-gray-50" x-data="{ 
+    activeTab: null,
+    files: {
+        analyze: null,
+        kubernetes: {
+            dockerfile: null,
+            imageName: '',
+            hostName: ''
+        }
+    },
+    fileContents: {
+        analyze: null,
+        kubernetes: null
+    },
+    isLoading: false,
+    analysisResult: null,
+    kubernetesResult: null,
+    
+    handleFileChange(event, type) {
+        const file = event.target.files[0];
+        if (type === 'analyze') {
+            this.files.analyze = file;
+            this.readFile(file, 'analyze');
+        } else if (type === 'kubernetes') {
+            this.files.kubernetes.dockerfile = file;
+            this.readFile(file, 'kubernetes');
+        }
+    },
+    
+    readFile(file, type) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.fileContents[type] = e.target.result;
+        };
+        reader.readAsText(file);
+    },
 
-        async handleAnalyzeSubmit() {
-            if (!this.files.analyze) {
-                alert('Please select a file to analyze');
-                return;
-            }
-
-            this.isLoading = true;
+    handleAnalyzeSubmit() {
+        if (!this.files.analyze) return;
+        this.isLoading = true;
+        try {
             const formData = new FormData();
             formData.append('file', this.files.analyze);
-
-            try {
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-                this.analysisResult = data.result;
-            } catch (error) {
-                console.error('Error:', error);
-                alert('An error occurred while analyzing the file');
-            } finally {
+            fetch('/analyze', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                this.analysisResult = data.analysis || data.result;
                 this.isLoading = false;
-            }
-        },
+            });
+        } catch (error) {
+            console.error('Error:', error);
+            this.analysisResult = 'Error analyzing file';
+            this.isLoading = false;
+        }
+    },
 
-        async handleKubernetesSubmit() {
-            if (!this.files.kubernetes.dockerfile) {
-                alert('Please select a Dockerfile');
-                return;
-            }
-
-            this.isLoading = true;
+    async handleKubernetesSubmit() {
+        if (!this.files.kubernetes.dockerfile) return;
+        
+        this.isLoading = true;
+        try {
+            // Step 1: Validate and analyze Dockerfile
             const formData = new FormData();
             formData.append('dockerfile', this.files.kubernetes.dockerfile);
-            formData.append('image_name', this.files.kubernetes.imageName);
-            formData.append('host_name', this.files.kubernetes.hostName);
-
-            try {
-                const response = await fetch('/generate-kubernetes', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await response.json();
-                this.kubernetesResult = data;
-            } catch (error) {
-                console.error('Error:', error);
-                alert('An error occurred while generating Kubernetes files');
-            } finally {
-                this.isLoading = false;
+            
+            const analyzeResponse = await fetch('/analyze-dockerfile', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!analyzeResponse.ok) {
+                throw new Error('Failed to analyze Dockerfile');
             }
-        },
-
-        async copyToClipboard(text) {
-            try {
-                await navigator.clipboard.writeText(text);
-                alert('Copied to clipboard!');
-            } catch (err) {
-                console.error('Failed to copy text: ', err);
+            
+            const analyzeData = await analyzeResponse.json();
+            console.log('Dockerfile Analysis:', analyzeData);
+            
+            // Step 2: Generate Kubernetes files using analysis
+            const generateFormData = new FormData();
+            generateFormData.append('dockerfile', this.files.kubernetes.dockerfile);
+            generateFormData.append('imageName', this.files.kubernetes.imageName || 'my-app');
+            generateFormData.append('hostName', this.files.kubernetes.hostName || 'example.com');
+            generateFormData.append('analysis', JSON.stringify(analyzeData));
+            
+            const k8sResponse = await fetch('/generate-k8s-files', {
+                method: 'POST',
+                body: generateFormData
+            });
+            
+            if (!k8sResponse.ok) {
+                throw new Error('Failed to generate Kubernetes files');
             }
-        },
+            
+            const data = await k8sResponse.json();
+            console.log('Generated K8s files:', data);
+            
+            this.kubernetesResult = {
+                deployment: data.deployment,
+                service: data.service,
+                ingress: data.ingress
+            };
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error generating Kubernetes files: ' + error.message);
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    copyToClipboard(text) {
+        if (!text) return;
+        navigator.clipboard.writeText(text)
+            .then(() => alert('Copied to clipboard!'))
+            .catch(err => console.error('Failed to copy:', err));
+    },
+
+    downloadYaml(content, filename) {
+        if (!content) return;
         
-        downloadYaml(type, content) {
-            const blob = new Blob([content], { type: 'text/yaml' });
-            const url = URL.createObjectURL(blob);
+        const blob = new Blob([content], { type: 'text/yaml' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    },
+
+    downloadAllYaml(results) {
+        if (!results) return;
+        
+        const zip = new JSZip();
+        
+        if (results.deployment) {
+            zip.file('deployment.yaml', results.deployment);
+        }
+        if (results.service) {
+            zip.file('service.yaml', results.service);
+        }
+        if (results.ingress) {
+            zip.file('ingress.yaml', results.ingress);
+        }
+        
+        zip.generateAsync({ type: 'blob' }).then((content) => {
+            const url = window.URL.createObjectURL(content);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${type}.yaml`;
+            a.download = 'kubernetes-manifests.zip';
             document.body.appendChild(a);
             a.click();
+            window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-    }">
-        <!-- Side Navigation -->
-        <button data-drawer-target="default-sidebar" data-drawer-toggle="default-sidebar" aria-controls="default-sidebar" type="button" class="inline-flex items-center p-2 mt-2 ms-3 text-sm text-gray-500 rounded-lg sm:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200">
-            <span class="sr-only">Open sidebar</span>
-            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                <path clip-rule="evenodd" fill-rule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 10.5a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5a.75.75 0 01-.75-.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10z"></path>
-            </svg>
-        </button>
-
-        <aside id="default-sidebar" class="fixed top-0 left-0 z-40 w-64 h-screen transition-transform -translate-x-full sm:translate-x-0" aria-label="Sidebar">
-            <div class="h-full px-3 py-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
-                <ul class="space-y-2 font-medium">
-                    <li>
-                        <a @click="activeTab = 'analyze'" :class="{'bg-blue-100': activeTab === 'analyze'}" class="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100 cursor-pointer">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                            </svg>
-                            <span class="ms-3">Configuration Analysis</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a @click="activeTab = 'kubernetes'" :class="{'bg-blue-100': activeTab === 'kubernetes'}" class="flex items-center p-2 text-gray-900 rounded-lg hover:#10b981 cursor-pointer">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-                            </svg>
-                            <span class="ms-3">Kubernetes Generator</span>
-                        </a>
-                    </li>
-                </ul>
+        });
+    }
+}">
+    <!-- Header -->
+    <header class="header-custom">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Sādhaka Logo" class="header-logo">
+                <!-- <div class="flex items-center gap-2">
+                    <span class="header-title">Sādhaka</span>
+                    <span class="header-ai">AI</span>
+                </div> -->
+                <span class="header-title ml-4">DevOps Tools Suite</span>
             </div>
-        </aside>
+            <div class="flex items-center">
+                {% if session.user %}
+                <a href="{{ url_for('logout') }}" class="text-white hover:opacity-80">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
 
-        <div class="p-4 sm:ml-64">
-            <!-- Configuration Analysis Section -->
-            <div x-show="activeTab === 'analyze'" class="p-4 border-2 border-gray-200 rounded-lg">
-                <h2 class="text-2xl font-bold mb-4">Configuration Analysis</h2>
-                <form @submit.prevent="handleAnalyzeSubmit" class="space-y-4">
-                    <div class="flex items-center justify-center w-full">
-                        <label class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                <svg class="w-8 h-8 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                                </svg>
-                                <p class="mb-2 text-sm text-gray-500">
-                                    <span x-text="files.analyze ? files.analyze.name : 'Click to upload configuration file'"></span>
-                                </p>
-                            </div>
-                            <input type="file" class="hidden" @change="files.analyze = $event.target.files[0]; readFile($event.target.files[0], 'analyze')" />
-                        </label>
-                    </div>
-                    
-                    <!-- File Preview Section -->
-                    <div x-show="fileContents.analyze" class="mt-4 p-4 bg-white rounded-lg shadow">
-                        <h3 class="text-lg font-semibold mb-2">File Preview</h3>
-                        <pre class="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg max-h-60 overflow-y-auto" x-text="fileContents.analyze"></pre>
-                        <div class="mt-4 text-sm text-gray-600">
-                            Please review the configuration above before proceeding.
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold mb-2">Welcome!</h1>
+            <p class="text-gray-600 mb-8">Select a module to get started.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- AI-DevOps Guardian Card -->
+                <div class="project-card" @click="activeTab = 'analyze'">
+                    <div class="flex items-center gap-4">
+                        <div class="icon-container">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-semibold">AI-DevOps Guardian</h2>
+                            <p class="text-gray-500">Analyze and secure your configurations</p>
                         </div>
                     </div>
-
-                    <button @click="handleAnalyzeSubmit" type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2">
-                        Analyze Configuration
-                    </button>
-                </form>
-                <div x-show="isLoading" class="mt-4">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
                 </div>
-                <div x-show="analysisResult" class="mt-4 p-4 bg-white rounded-lg shadow">
-                    <pre x-text="analysisResult" class="whitespace-pre-wrap"></pre>
+
+                <!-- Kubernetes YAML Generator Card -->
+                <div class="project-card" @click="activeTab = 'kubernetes'">
+                    <div class="flex items-center gap-4">
+                        <div class="icon-container">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-semibold">Kubernetes YAML Generator</h2>
+                            <p class="text-gray-500">Generate Kubernetes manifests</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Kubernetes Generator Section -->
-            <div x-show="activeTab === 'kubernetes'" class="p-4 border-2 border-gray-200 rounded-lg">
-                <h2 class="text-2xl font-bold mb-4">Kubernetes Generator</h2>
-                <form @submit.prevent="handleKubernetesSubmit" class="space-y-4">
-                    <div class="flex items-center justify-center w-full">
-                        <label class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                <svg class="w-8 h-8 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                                </svg>
-                                <p class="mb-2 text-sm text-gray-500">
-                                    <span x-text="files.kubernetes.dockerfile ? files.kubernetes.dockerfile.name : 'Click to upload Dockerfile'"></span>
-                                </p>
+            <!-- Content sections -->
+            <div class="mt-8">
+                <!-- Configuration Analysis Section -->
+                <div x-show="activeTab === 'analyze'" class="p-4 border-2 border-gray-200 rounded-lg">
+                    <h2 class="text-2xl font-bold mb-4">AI-DevOps Guardian</h2>
+                    <form @submit.prevent="handleAnalyzeSubmit" class="space-y-4">
+                        <div class="flex items-center justify-center w-full">
+                            <label class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg class="w-8 h-8 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    <p class="mb-2 text-sm text-gray-500">
+                                        <span x-text="files.analyze ? files.analyze.name : 'Click to upload configuration file'"></span>
+                                    </p>
+                                </div>
+                                <input type="file" class="hidden" @change="handleFileChange($event, 'analyze')" />
+                            </label>
+                        </div>
+                        
+                        <!-- File Preview Section -->
+                        <div x-show="fileContents.analyze" class="mt-4 p-4 bg-white rounded-lg shadow">
+                            <h3 class="text-lg font-semibold mb-2">File Preview</h3>
+                            <pre class="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg max-h-60 overflow-y-auto" x-text="fileContents.analyze"></pre>
+                        </div>
+
+                        <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5">
+                            Analyze Configuration
+                        </button>
+                    </form>
+                    <div x-show="isLoading" class="mt-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+                    </div>
+                    <div x-show="analysisResult" class="mt-4 p-4 bg-white rounded-lg shadow">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold">Analysis Result</h3>
+                            <div class="space-x-2">
+                                <button @click="copyToClipboard(analysisResult)" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                                    Copy
+                                </button>
                             </div>
-                            <input type="file" class="hidden" @change="files.kubernetes.dockerfile = $event.target.files[0]; readFile($event.target.files[0], 'kubernetes')" />
-                        </label>
-                    </div>
-
-                    <!-- Dockerfile Preview Section -->
-                    <div x-show="fileContents.kubernetes" class="mt-4 p-4 bg-white rounded-lg shadow">
-                        <h3 class="text-lg font-semibold mb-2">Dockerfile Preview</h3>
-                        <pre class="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg max-h-60 overflow-y-auto" x-text="fileContents.kubernetes"></pre>
-                        <div class="mt-4 text-sm text-gray-600">
-                            Please review the Dockerfile contents above before proceeding.
                         </div>
+                        <pre x-text="analysisResult" class="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg"></pre>
                     </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Image Name</label>
-                            <input type="text" x-model="files.kubernetes.imageName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="my-app">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Host Name</label>
-                            <input type="text" x-model="files.kubernetes.hostName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="example.com">
-                        </div>
-                    </div>
-                    <button @click="handleKubernetesSubmit" type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 mr-2 mb-2">
-                        Generate Kubernetes Files
-                    </button>
-                </form>
-                <div x-show="isLoading" class="mt-4">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
                 </div>
-                <div x-show="kubernetesResult" class="mt-4 space-y-4">
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-bold">Deployment</h3>
-                            <div class="space-x-2">
-                                <button @click="copyToClipboard(kubernetesResult?.deployment)" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
-                                    Copy
-                                </button>
-                                <button @click="downloadYaml('deployment', kubernetesResult?.deployment)" class="text-sm bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded">
-                                    Download
-                                </button>
+
+                <!-- Kubernetes Generator Section -->
+                <div x-show="activeTab === 'kubernetes'" class="p-4 border-2 border-gray-200 rounded-lg">
+                    <h2 class="text-2xl font-bold mb-4">Kubernetes YAML Generator</h2>
+                    <form @submit.prevent="handleKubernetesSubmit" class="space-y-4">
+                        <div class="flex items-center justify-center w-full">
+                            <label class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg class="w-8 h-8 mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    <p class="mb-2 text-sm text-gray-500">
+                                        <span x-text="files.kubernetes.dockerfile ? files.kubernetes.dockerfile.name : 'Click to upload Dockerfile'"></span>
+                                    </p>
+                                </div>
+                                <input type="file" class="hidden" @change="handleFileChange($event, 'kubernetes')" />
+                            </label>
+                        </div>
+
+                        <!-- File Preview -->
+                        <div x-show="fileContents.kubernetes" class="mt-4 p-4 bg-white rounded-lg shadow">
+                            <h3 class="text-lg font-semibold mb-2">Dockerfile Preview</h3>
+                            <pre class="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg max-h-60 overflow-y-auto" x-text="fileContents.kubernetes"></pre>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Image Name</label>
+                                <input type="text" x-model="files.kubernetes.imageName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="my-app">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Host Name</label>
+                                <input type="text" x-model="files.kubernetes.hostName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="example.com">
                             </div>
                         </div>
-                        <pre x-text="kubernetesResult?.deployment" class="whitespace-pre-wrap"></pre>
+
+                        <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5">
+                            Generate Kubernetes Files
+                        </button>
+                    </form>
+
+                    <!-- Loading Indicator -->
+                    <div x-show="isLoading" class="mt-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-700 mx-auto"></div>
                     </div>
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-bold">Service</h3>
-                            <div class="space-x-2">
-                                <button @click="copyToClipboard(kubernetesResult?.service)" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
-                                    Copy
-                                </button>
-                                <button @click="downloadYaml('service', kubernetesResult?.service)" class="text-sm bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded">
-                                    Download
-                                </button>
+
+                    <!-- Results Section -->
+                    <div x-show="kubernetesResult" class="mt-4 space-y-4">
+                        <!-- Deployment -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold">Deployment</h3>
+                                <div class="space-x-2">
+                                    <button @click="copyToClipboard(kubernetesResult?.deployment)" 
+                                            class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                                        Copy
+                                    </button>
+                                    <button @click="downloadYaml(kubernetesResult?.deployment, 'deployment.yaml')" 
+                                            class="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">
+                                        Download
+                                    </button>
+                                </div>
                             </div>
+                            <pre x-text="kubernetesResult?.deployment" class="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg"></pre>
                         </div>
-                        <pre x-text="kubernetesResult?.service" class="whitespace-pre-wrap"></pre>
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-bold">Ingress</h3>
-                            <div class="space-x-2">
-                                <button @click="copyToClipboard(kubernetesResult?.ingress)" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
-                                    Copy
-                                </button>
-                                <button @click="downloadYaml('ingress', kubernetesResult?.ingress)" class="text-sm bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded">
-                                    Download
-                                </button>
+
+                        <!-- Service -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold">Service</h3>
+                                <div class="space-x-2">
+                                    <button @click="copyToClipboard(kubernetesResult?.service)" 
+                                            class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                                        Copy
+                                    </button>
+                                    <button @click="downloadYaml(kubernetesResult?.service, 'service.yaml')" 
+                                            class="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">
+                                        Download
+                                    </button>
+                                </div>
                             </div>
+                            <pre x-text="kubernetesResult?.service" class="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg"></pre>
                         </div>
-                        <pre x-text="kubernetesResult?.ingress" class="whitespace-pre-wrap"></pre>
+
+                        <!-- Ingress -->
+                        <div class="bg-white rounded-lg shadow p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-bold">Ingress</h3>
+                                <div class="space-x-2">
+                                    <button @click="copyToClipboard(kubernetesResult?.ingress)" 
+                                            class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                                        Copy
+                                    </button>
+                                    <button @click="downloadYaml(kubernetesResult?.ingress, 'ingress.yaml')" 
+                                            class="text-sm bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">
+                                        Download
+                                    </button>
+                                </div>
+                            </div>
+                            <pre x-text="kubernetesResult?.ingress" class="whitespace-pre-wrap bg-gray-50 p-4 rounded-lg"></pre>
+                        </div>
+
+                        <!-- Download All Button -->
+                        <div class="mt-4 text-center">
+                            <button @click="downloadAllYaml(kubernetesResult)" 
+                                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium">
+                                Download All Files
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </body>
 </html>

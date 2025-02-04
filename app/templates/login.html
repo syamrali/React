@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sādhaka AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #00b894;
+            font-family: 'Inter', sans-serif;
+        }
+        .login-container {
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            width: 100%;
+            max-width: 400px;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .login-button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: #00b894;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .login-button:hover {
+            background-color: #00a884;
+        }
+        .demo-credentials {
+            background-color: #f0fdfa;
+            border: 1px dashed #00b894;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .demo-title {
+            color: #00b894;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Sādhaka AI Logo" class="h-8 mx-auto mb-4">
+            
+            <p class="text-white">DevOps Tools Suite</p>
+        </div>
+
+        <div class="login-container">
+            <h2 class="text-2xl font-bold text-center mb-2">Welcome back</h2>
+            <p class="text-center text-gray-600 mb-4">Sign in to your account to continue</p>
+            
+           
+             
+            <form action="{{ url_for('login') }}" method="POST">
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-medium mb-2">Email address</label>
+                    <input type="email" name="email" value="demo@example.com" 
+                           class="input-field" required>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-medium mb-2">Password</label>
+                    <input type="password" name="password" value="demo123" 
+                           class="input-field" required>
+                </div>
+                
+                <button type="submit" class="login-button">
+                    Sign in
+                </button>
+            </form>
+            
+            <p class="text-center mt-6 text-gray-600">
+                Don't have an account? 
+                <a href="{{ url_for('signup') }}" class="text-emerald-500 hover:text-emerald-600">Sign up</a>
+            </p>
+        </div>
+        
+        <div class="text-center mt-8 text-white">
+            Powered by <span class="font-semibold">Sādhaka AI</span>
+        </div>
+    </div>
+</body>
+</html> 
