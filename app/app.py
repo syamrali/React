@@ -155,7 +155,7 @@ def analyze_dockerfile_with_gemini(dockerfile_content):
         }
 
 def generate_deployment_yaml(image_name, docker_analysis):
-    """Generate Kubernetes Deployment YAML using Dockerfile analysis"""
+    """Generate Kubernetes Deployment YAML"""
     try:
         deployment = {
             'apiVersion': 'apps/v1',
@@ -190,7 +190,8 @@ def generate_deployment_yaml(image_name, docker_analysis):
                 }
             }
         }
-        return yaml.dump(deployment, default_flow_style=False)
+        # Generate YAML without any markdown formatting
+        return yaml.dump(deployment, default_flow_style=False, sort_keys=False)
     except Exception as e:
         print(f"Error generating deployment YAML: {str(e)}")
         return None
@@ -354,15 +355,17 @@ def generate_k8s_files():
         model = genai.GenerativeModel('gemini-pro')
         response = model.generate_content(prompt)
         
-        # Parse the generated YAML files
-        yamls = parse_kubernetes_yamls(response.text)
+        # Clean the AI response before processing
+        response_text = response.text.replace('```yaml', '').replace('```', '')
         
-        return jsonify({
-            'deployment': yamls.get('deployment', ''),
-            'service': yamls.get('service', ''),
-            'ingress': yamls.get('ingress', '')
-        })
+        # Parse the cleaned response
+        kubernetes_yamls = parse_kubernetes_yamls(response_text)
         
+        # Ensure the final output is clean
+        for key in kubernetes_yamls:
+            kubernetes_yamls[key] = kubernetes_yamls[key].strip()
+        
+        return jsonify(kubernetes_yamls)
     except Exception as e:
         print(f"Error generating Kubernetes files: {str(e)}")
         return jsonify({'error': str(e)}), 500
