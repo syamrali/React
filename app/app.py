@@ -9,7 +9,7 @@ from werkzeug.utils import secure_filename
 
 # Load environment variables and configure Gemini
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = "AIzaSyBPnmeDYppp5cNfS9K9Ri-EoMiaxt78hCw"
 
 if not GEMINI_API_KEY:
     raise ValueError("Please set your Google Gemini API key in .env file")

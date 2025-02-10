@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: react-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: react-web
+  template:
+    metadata:
+      labels:
+        app: react-web
+    spec:
+      containers:
+      - image: syamrali/react-web:latest
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30  # Increased delay before first check
+          periodSeconds: 10        # Period between checks
+          timeoutSeconds: 5        # Timeout for each probe
+          failureThreshold: 5      # Number of failed attempts before considering the container as unhealthy
+        name: react-web
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30  # Increased delay before first check
+          periodSeconds: 10        # Period between checks
+          timeoutSeconds: 5        # Timeout for each probe
+          failureThreshold: 5      # Number of failed attempts before considering the container as not ready
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add: []
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+          runAsGroup: 0
+          runAsNonRoot: false
+          runAsUser: 0
