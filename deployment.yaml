@@ -17,7 +17,7 @@ spec:
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
-            path: /health
+            path: /
             port: 8080
           initialDelaySeconds: 30  # Increased delay before first check
           periodSeconds: 10        # Period between checks
@@ -28,7 +28,7 @@ spec:
         - containerPort: 8080
         readinessProbe:
           httpGet:
-            path: /health
+            path: /
             port: 8080
           initialDelaySeconds: 30  # Increased delay before first check
           periodSeconds: 10        # Period between checks
